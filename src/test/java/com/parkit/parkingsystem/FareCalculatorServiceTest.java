@@ -8,10 +8,13 @@ import com.parkit.parkingsystem.service.FareCalculatorService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Date;
+import java.util.stream.Stream;
 
 public class FareCalculatorServiceTest {
 
@@ -19,41 +22,28 @@ public class FareCalculatorServiceTest {
     private Ticket ticket;
 
     @BeforeAll
-    private static void setUp() {
+    public static void setUp() {
         fareCalculatorService = new FareCalculatorService();
     }
 
     @BeforeEach
-    private void setUpPerTest() {
+    public void setUpPerTest() {
         ticket = new Ticket();
     }
 
-    @Test
-    public void calculateFareCar(){
+    @ParameterizedTest
+    @MethodSource("fareArguments")
+    public void calculateFares(ParkingType parkingType, long duration, double expectedPrice ){
         Date inTime = new Date();
-        inTime.setTime( System.currentTimeMillis() - (  60 * 60 * 1000) );
+        inTime.setTime( System.currentTimeMillis() - (  duration * 60L * 1_000L) );
         Date outTime = new Date();
-        ParkingSpot parkingSpot = new ParkingSpot(1, ParkingType.CAR,false);
+        ParkingSpot parkingSpot = new ParkingSpot(1, parkingType,false);
 
         ticket.setInTime(inTime);
         ticket.setOutTime(outTime);
         ticket.setParkingSpot(parkingSpot);
         fareCalculatorService.calculateFare(ticket);
-        assertEquals(ticket.getPrice(), Fare.CAR_RATE_PER_HOUR);
-    }
-
-    @Test
-    public void calculateFareBike(){
-        Date inTime = new Date();
-        inTime.setTime( System.currentTimeMillis() - (  60 * 60 * 1000) );
-        Date outTime = new Date();
-        ParkingSpot parkingSpot = new ParkingSpot(1, ParkingType.BIKE,false);
-
-        ticket.setInTime(inTime);
-        ticket.setOutTime(outTime);
-        ticket.setParkingSpot(parkingSpot);
-        fareCalculatorService.calculateFare(ticket);
-        assertEquals(ticket.getPrice(), Fare.BIKE_RATE_PER_HOUR);
+        assertEquals(expectedPrice, ticket.getPrice());
     }
 
     @Test
@@ -122,6 +112,53 @@ public class FareCalculatorServiceTest {
         ticket.setParkingSpot(parkingSpot);
         fareCalculatorService.calculateFare(ticket);
         assertEquals( (24 * Fare.CAR_RATE_PER_HOUR) , ticket.getPrice());
+    }
+
+    @ParameterizedTest
+    @CsvSource({ "CAR, 20", "BIKE, 25" })
+    public void calculateFareVehicleWithLessThan30minutesParkingTime(ParkingType type, long minutes) {
+        ParkingSpot parkingSpot = new ParkingSpot(1, type,false);
+        Date  inTime = new Date();
+        inTime.setTime( System.currentTimeMillis() - (  minutes * 60 * 1000) );
+        Date outTime = new Date();
+
+        ticket.setInTime(inTime);
+        ticket.setOutTime(outTime);
+        ticket.setParkingSpot(parkingSpot);
+        fareCalculatorService.calculateFare(ticket);
+        assertEquals(0, ticket.getPrice());
+    }
+
+    @ParameterizedTest
+    @MethodSource("fareArgumentsWithDiscount")
+    public void calculateFareVehicleWithDiscount(ParkingType type, long minutes, double expected) {
+        ParkingSpot parkingSpot = new ParkingSpot(1, type,false);
+        Date  inTime = new Date();
+        inTime.setTime( System.currentTimeMillis() - (  minutes * 60 * 1000) );
+
+        ticket.setInTime(inTime);
+        ticket.setOutTime(new Date());
+        ticket.setParkingSpot(parkingSpot);
+
+        fareCalculatorService.calculateFare(ticket, true);
+        assertEquals(expected, ticket.getPrice(),0.001);
+
+    }
+
+    private static  Stream<Arguments> fareArguments(){
+        return Stream.of(
+                Arguments.of(ParkingType.CAR, 60, Fare.CAR_RATE_PER_HOUR),
+                Arguments.of(ParkingType.BIKE, 60, Fare.BIKE_RATE_PER_HOUR)
+        );
+
+    }
+
+    private static  Stream<Arguments> fareArgumentsWithDiscount(){
+        return Stream.of(
+                Arguments.of(ParkingType.CAR, 60, Fare.CAR_RATE_PER_HOUR * 0.95),
+                Arguments.of(ParkingType.BIKE, 60, Fare.BIKE_RATE_PER_HOUR * 0.95)
+        );
+
     }
 
 }

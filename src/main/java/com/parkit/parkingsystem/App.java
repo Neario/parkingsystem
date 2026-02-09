@@ -6,8 +6,9 @@ import org.apache.logging.log4j.Logger;
 
 public class App {
     private static final Logger logger = LogManager.getLogger("App");
-    public static void main(String args[]){
+    public static void main(String args[]) throws InterruptedException {
         logger.info("Initializing Parking System");
+        Thread.sleep(10000);
         InteractiveShell.loadInterface();
     }
 }
