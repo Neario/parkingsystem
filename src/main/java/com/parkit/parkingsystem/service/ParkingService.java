@@ -34,7 +34,7 @@ public class ParkingService {
                 String vehicleRegNumber = getVehichleRegNumber();
                 int nbTickets = ticketDAO.getNbTicket(vehicleRegNumber);
                 if (nbTickets > 0){
-                    System.out.println("Welcome back! you'll benefit a 5% discount.");
+                    System.out.println("Great to see you again! As a regular user of our car park, you will receive a 5% discount.");
                 } else {
                     System.out.println("Welcome");
                 }
