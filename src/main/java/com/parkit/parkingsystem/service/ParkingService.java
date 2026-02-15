@@ -34,7 +34,8 @@ public class ParkingService {
                 String vehicleRegNumber = getVehichleRegNumber();
                 int nbTickets = ticketDAO.getNbTicket(vehicleRegNumber);
                 if (nbTickets > 0){
-                    System.out.println("Great to see you again! As a regular user of our car park, you will receive a 5% discount.");
+                    System.out.println("Great to see you again! As a regular user of our car park, " +
+                            "you will receive a 5% discount.");
                 } else {
                     System.out.println("Welcome");
                 }
@@ -117,7 +118,8 @@ public class ParkingService {
                 parkingSpot.setAvailable(true);
                 parkingSpotDAO.updateParking(parkingSpot);
                 System.out.println("Please pay the parking fare:" + ticket.getPrice());
-                System.out.println("Recorded out-time for vehicle number:" + ticket.getVehicleRegNumber() + " is:" + outTime);
+                System.out.println("Recorded out-time for vehicle number:"
+                        + ticket.getVehicleRegNumber() + " is:" + outTime);
             }else{
                 System.out.println("Unable to update ticket information. Error occurred");
             }

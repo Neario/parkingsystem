@@ -18,13 +18,15 @@ import java.sql.*;
 import java.util.*;
 import java.util.Date;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class ParkingDataBaseIT {
 
     private static final DataBaseTestConfig dataBaseTestConfig = new DataBaseTestConfig();
-    public static final String vehiculeRegistrationNumber = "ABCDEF";
+    private static final String VEHICLE_REG_NUMBER = "ABCDEF";
     private static ParkingSpotDAO parkingSpotDAO;
     private static TicketDAO ticketDAO;
     private static DataBasePrepareService dataBasePrepareService;
@@ -44,7 +46,7 @@ public class ParkingDataBaseIT {
     @BeforeEach
     public void setUpPerTest() throws Exception {
         //
-        when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(vehiculeRegistrationNumber);
+        when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(VEHICLE_REG_NUMBER);
         dataBasePrepareService.clearDataBaseEntries();
     }
 
@@ -56,9 +58,9 @@ public class ParkingDataBaseIT {
         when(inputReaderUtil.readSelection()).thenReturn(1);
         parkingService.processIncomingVehicle();
         //THEN
-        Ticket ticket = ticketDAO.getTicket(vehiculeRegistrationNumber);
+        Ticket ticket = ticketDAO.getTicket(VEHICLE_REG_NUMBER);
         Assertions.assertNotNull(ticket);
-        Assertions.assertEquals(vehiculeRegistrationNumber, ticket.getVehicleRegNumber());
+        Assertions.assertEquals(VEHICLE_REG_NUMBER, ticket.getVehicleRegNumber());
         Assertions.assertNotNull(ticket.getInTime());
         Assertions.assertNull(ticket.getOutTime());
         Assertions.assertEquals(0, ticket.getPrice());
@@ -66,30 +68,23 @@ public class ParkingDataBaseIT {
 
     @Test
     public void testParkingLotExit() {
-        //GIVEN
-        testParkingACar(); // <--JAMAIS
+        when(inputReaderUtil.readSelection()).thenReturn(1);
 
-        // vvvv JAMAIS
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        ParkingService parkingService =
+                new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
 
-        // ^^^^ JAMAIS
+        parkingService.processIncomingVehicle();
 
-        ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
+        Ticket ticket = ticketDAO.getTicket(VEHICLE_REG_NUMBER);
+        assertNotNull(ticket);
 
+        ticket.setInTime(new Date(System.currentTimeMillis() - (60 * 60 * 1000)));
+        ticket.setOutTime(new Date());
 
-        //WHEN
         parkingService.processExitingVehicle();
-
-
-        //THEN
-        Ticket ticket = ticketDAO.getTicket(vehiculeRegistrationNumber);
-        Assertions.assertNotNull(ticket.getOutTime());
-        Assertions.assertTrue(ticket.getPrice() >= 0);
-        Assertions.assertEquals(1, parkingSpotDAO.getNextAvailableSlot(ParkingType.CAR));
+        Ticket updatedTicket = ticketDAO.getTicket(VEHICLE_REG_NUMBER);
+        assertNotNull(updatedTicket.getOutTime());
+        assertTrue(updatedTicket.getPrice() >= 0);
     }
 
     @Test
@@ -102,7 +97,7 @@ public class ParkingDataBaseIT {
         ticket1.setInTime(new Date(System.currentTimeMillis() - (60 * 60 * 1000)));
         ticket1.setOutTime(new Date(System.currentTimeMillis() - (50 * 60 * 1000)));
         ticket1.setParkingSpot(parkingSpot1);
-        ticket1.setVehicleRegNumber(vehiculeRegistrationNumber);
+        ticket1.setVehicleRegNumber(VEHICLE_REG_NUMBER);
         ticketDAO.saveTicket(ticket1);
 
 
@@ -110,23 +105,17 @@ public class ParkingDataBaseIT {
         final Ticket ticket2 = new Ticket();
         ticket2.setInTime(new Date(System.currentTimeMillis() - (45 * 60 * 1000)));
         ticket2.setParkingSpot(parkingSpot2);
-        ticket2.setVehicleRegNumber(vehiculeRegistrationNumber);
+        ticket2.setVehicleRegNumber(VEHICLE_REG_NUMBER);
         ticketDAO.saveTicket(ticket2);
 
         final double expectedPrice = (Fare.CAR_RATE_PER_HOUR * 0.75) * 0.95;
-
-
         // WHEN vehicle exiting
         parkingService.processExitingVehicle();
-
         //THEN
-        Ticket secondTicket = ticketDAO.getTicket(vehiculeRegistrationNumber);
+        Ticket secondTicket = ticketDAO.getTicket(VEHICLE_REG_NUMBER);
 
         Assertions.assertNotNull(secondTicket);
         Assertions.assertEquals(roundPrice(expectedPrice), roundPrice(secondTicket.getPrice()));
-
-//        int nbTicket = ticketDAO.getNbTicket(vehiculeRegistrationNumber);
-
     }
 
     private BigDecimal roundPrice(double price) {

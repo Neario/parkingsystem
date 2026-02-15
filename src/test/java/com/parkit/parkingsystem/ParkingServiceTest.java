@@ -22,38 +22,32 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 public class ParkingServiceTest {
 
-    private static ParkingService parkingService;
+    private static final String VEHICLE_REG_NUMBER = "ABCDEF";
+
+    private ParkingService parkingService;
 
     @Mock
-    private static InputReaderUtil inputReaderUtil;
+    private InputReaderUtil inputReaderUtil;
     @Mock
-    private static ParkingSpotDAO parkingSpotDAO;
+    private ParkingSpotDAO parkingSpotDAO;
     @Mock
-    private static TicketDAO ticketDAO;
+    private TicketDAO ticketDAO;
 
     @BeforeEach
     public void setUpPerTest() {
         parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
     }
 
-    @Test
-    public void processExitingVehicleTest(){
+    @ParameterizedTest
+    @EnumSource(ParkingType.class)
+    public void processExitingVehicleTest(ParkingType type) throws Exception {
         //GIVEN
-        ParkingSpot parkingSpot = new ParkingSpot(1, ParkingType.CAR,false);
-        Ticket ticket = new Ticket();
-        ticket.setInTime(new Date(System.currentTimeMillis() - (60*60*1000)));
-        ticket.setParkingSpot(parkingSpot);
-        ticket.setVehicleRegNumber("ABCDEF");
+        Ticket ticket = newTicket(type);
 
-        try {
-            when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn("ABCDEF");
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(VEHICLE_REG_NUMBER);
         when(parkingSpotDAO.updateParking(any(ParkingSpot.class))).thenReturn(true);
         when(ticketDAO.getTicket(anyString())).thenReturn(ticket);
-        when(ticketDAO.getNbTicket("ABCDEF")).thenReturn(1);
+        when(ticketDAO.getNbTicket(VEHICLE_REG_NUMBER)).thenReturn(1);
         when(ticketDAO.updateTicket(any(Ticket.class))).thenReturn(true);
         //WHEN
         parkingService.processExitingVehicle();
@@ -74,35 +68,21 @@ public class ParkingServiceTest {
 
     }
 
-    private static Stream<Arguments> processIncomingVehicleArguments(){
-        return Stream.of(
-                Arguments.of(ParkingType.CAR, 1),
-                Arguments.of(ParkingType.BIKE, 2)
-        );
-
-    }
-
     @ParameterizedTest
-    @MethodSource("processIncomingVehicleArguments")
-    public void testProcessIncomingVehicle(ParkingType parkingType, int menuChoice) {
+    @EnumSource(ParkingType.class)
+    public void testProcessIncomingVehicle(ParkingType parkingType) throws Exception {
         //GIVEN
+        int menuChoice = (parkingType == ParkingType.CAR) ? 1 : 2;
         ParkingSpot parkingSpot = new ParkingSpot(1, parkingType,true);
 
-        try {
-            when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn("ABCDEF");
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(VEHICLE_REG_NUMBER);
         when(parkingSpotDAO.updateParking(any(ParkingSpot.class))).thenReturn(true);
         when(inputReaderUtil.readSelection()).thenReturn(menuChoice);
         when(parkingSpotDAO.getNextAvailableSlot(parkingType)).thenReturn(parkingSpot.getId());
-        when(ticketDAO.getNbTicket("ABCDEF")).thenReturn(0);
+        when(ticketDAO.getNbTicket(VEHICLE_REG_NUMBER)).thenReturn(0);
         when(ticketDAO.saveTicket(any(Ticket.class))).thenReturn(true);
-
         // WHEN
         parkingService.processIncomingVehicle();
-
         // THEN
         ArgumentCaptor<ParkingSpot> parkingSpotArgumentCaptor = ArgumentCaptor.forClass(ParkingSpot.class);
         verify(parkingSpotDAO).updateParking(parkingSpotArgumentCaptor.capture());
@@ -113,7 +93,7 @@ public class ParkingServiceTest {
 
         Ticket ticketArgument = ticketArgumentCaptor.getValue();
         Assertions.assertNotNull(ticketArgument);
-        Assertions.assertEquals("ABCDEF", ticketArgument.getVehicleRegNumber());
+        Assertions.assertEquals(VEHICLE_REG_NUMBER, ticketArgument.getVehicleRegNumber());
         Assertions.assertEquals(parkingSpot, ticketArgument.getParkingSpot());
         Assertions.assertNotNull(ticketArgument.getInTime());
         Assertions.assertNull(ticketArgument.getOutTime());
@@ -123,55 +103,33 @@ public class ParkingServiceTest {
 
     }
 
-    private static Stream<Arguments> processExitingVehicleTestUnableUpdateArguments() {
-        return Stream.of(
-                Arguments.of(ParkingType.CAR),
-                Arguments.of(ParkingType.BIKE)
-        );
-    }
-
     @ParameterizedTest
-    @MethodSource("processExitingVehicleTestUnableUpdateArguments")
-    public void processExitingVehicleTestUnableUpdate(ParkingType parkingType) {
+    @EnumSource(ParkingType.class)
+    public void processExitingVehicleTestUnableUpdate(ParkingType parkingType) throws Exception {
         //GIVEN
         ParkingSpot parkingSpot = new ParkingSpot(1, parkingType, false);
-        Ticket ticket = new Ticket();
-        ticket.setInTime(new Date(System.currentTimeMillis() - (60*60*1000)));
-        ticket.setOutTime(new Date());
-        ticket.setParkingSpot(parkingSpot);
-        //WHEN
-        try {
-            when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn("ABCDEF");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        when(ticketDAO.getTicket("ABCDEF")).thenReturn(ticket);
-        when(ticketDAO.getNbTicket("ABCDEF")).thenReturn(1);
-        when(ticketDAO.updateTicket(ticket)).thenReturn(false);
+        Ticket ticket = newTicket(parkingType);
 
+        when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(VEHICLE_REG_NUMBER);
+        when(ticketDAO.getTicket(VEHICLE_REG_NUMBER)).thenReturn(ticket);
+        when(ticketDAO.getNbTicket(VEHICLE_REG_NUMBER)).thenReturn(1);
+        when(ticketDAO.updateTicket(ticket)).thenReturn(false);
+        //WHEN
         parkingService.processExitingVehicle();
         //THEN
         verify(ticketDAO, times(1)).updateTicket(ticket);
         verify(parkingSpotDAO, never()).updateParking(parkingSpot);
     }
 
-    private static Stream<Arguments> processGetNextParkingNumberIfAvailableArguments() {
-        return Stream.of(
-                Arguments.of(ParkingType.CAR, 1),
-                Arguments.of(ParkingType.BIKE, 2)
-        );
-
-    }
-
     @ParameterizedTest
-    @MethodSource("processGetNextParkingNumberIfAvailableArguments")
-    public void testGetNextParkingNumberIfAvailable(ParkingType parkingType, int menuChoice) {
+    @EnumSource(ParkingType.class)
+    public void testGetNextParkingNumberIfAvailable(ParkingType parkingType) {
         //GIVEN
         ParkingSpot parkingSpot = new ParkingSpot(1, parkingType, true);
+        int menuChoice = (parkingType == ParkingType.CAR) ? 1 : 2;
 
         when(inputReaderUtil.readSelection()).thenReturn(menuChoice);
         when(parkingSpotDAO.getNextAvailableSlot(parkingType)).thenReturn(parkingSpot.getId());
-
         //WHEN
         ParkingSpot parkingSpotResult = parkingService.getNextParkingNumberIfAvailable();
         //THEN
@@ -181,20 +139,13 @@ public class ParkingServiceTest {
         verify(parkingSpotDAO).getNextAvailableSlot(parkingType);
     }
 
-    private static Stream<Arguments> processGetNextParkingNumberIfAvailableParkingNumberNotFoundArguments() {
-        return Stream.of(
-                Arguments.of(ParkingType.CAR, 1),
-                Arguments.of(ParkingType.BIKE, 2)
-        );
-    }
-
     @ParameterizedTest
-    @MethodSource("processGetNextParkingNumberIfAvailableParkingNumberNotFoundArguments")
-    public void testGetNextParkingNumberIfAvailableParkingNumberNotFound(ParkingType parkingType, int menuChoice) {
+    @EnumSource(ParkingType.class)
+    public void testGetNextParkingNumberIfAvailableParkingNumberNotFound(ParkingType parkingType) {
         //GIVEN
+        int  menuChoice = (parkingType == ParkingType.CAR) ? 1 : 2;
         when(inputReaderUtil.readSelection()).thenReturn(menuChoice);
         when(parkingSpotDAO.getNextAvailableSlot(parkingType)).thenReturn(0);
-
         //WHEN
         ParkingSpot parkingSpotResult = parkingService.getNextParkingNumberIfAvailable();
         //THEN
@@ -213,5 +164,12 @@ public class ParkingServiceTest {
         verify(parkingSpotDAO, never()).getNextAvailableSlot(any());
     }
 
-
+    private Ticket newTicket(ParkingType type) {
+        ParkingSpot spot = new ParkingSpot(1, type, false);
+        Ticket ticket = new Ticket();
+        ticket.setInTime(new Date(System.currentTimeMillis() - (60 * 60 * 1000)));
+        ticket.setParkingSpot(spot);
+        ticket.setVehicleRegNumber(VEHICLE_REG_NUMBER);
+        return ticket;
+    }
 }
