@@ -67,7 +67,7 @@ public class ParkingDataBaseIT {
     }
 
     @Test
-    public void testParkingLotExit() {
+    public void testParkingLotExit() throws InterruptedException {
         when(inputReaderUtil.readSelection()).thenReturn(1);
 
         ParkingService parkingService =
@@ -78,8 +78,7 @@ public class ParkingDataBaseIT {
         Ticket ticket = ticketDAO.getTicket(VEHICLE_REG_NUMBER);
         assertNotNull(ticket);
 
-        ticket.setInTime(new Date(System.currentTimeMillis() - (60 * 60 * 1000)));
-        ticket.setOutTime(new Date());
+        Thread.sleep(1000);
 
         parkingService.processExitingVehicle();
         Ticket updatedTicket = ticketDAO.getTicket(VEHICLE_REG_NUMBER);
